@@ -1172,10 +1172,10 @@ void DrawPanelV2(const TradingSetup &s, const TFSummary &htf2, const TFSummary &
                  ((StringFind(htf1.bias,"Bull") >= 0 && StringFind(s.bias,"Bull") >= 0) ||
                   (StringFind(htf1.bias,"Bear") >= 0 && StringFind(s.bias,"Bear") >= 0));
 
-   bool bos_ok = (s.structure == "Bullish" || s.structure == "Bearish" ||
-                  StringFind(s.structure, "CHoCH") >= 0);
    bool bias_bear = StringFind(s.bias, "Bear") >= 0;
    bool bias_bull = StringFind(s.bias, "Bull") >= 0;
+   bool bos_ok = (bias_bull && (s.structure == "Bullish" || s.structure == "CHoCH_Bull")) ||
+                 (bias_bear && (s.structure == "Bearish" || s.structure == "CHoCH_Bear"));
    bool prd_ok = has ? (buy ? (close <= ema50v + atr * 0.15) : (close >= ema50v - atr * 0.15))
                      : (bias_bear ? (close > ema50v) : (bias_bull ? (close <= ema50v) : false));
    bool vol_ok = StringFind(volatility, "Normal") >= 0;
