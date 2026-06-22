@@ -693,9 +693,9 @@ void DrawSR(SRLvl &sr[], int sr_n, double current_price)
    if(!InpShowSR) return;
 
    double   atr     = GetATR();
-   double   half    = atr * 0.25;
+   double   half    = atr * 0.13;
    int      rs = 0, ss = 0;
-   datetime t_right = TimeCurrent() + (datetime)(PeriodSeconds(_Period) * 35);
+   datetime t_right = TimeCurrent() + (datetime)(PeriodSeconds(_Period) * 20);
 
    for(int i = 0; i < sr_n; i++)
    {
@@ -704,6 +704,8 @@ void DrawSR(SRLvl &sr[], int sr_n, double current_price)
       if(sr[i].is_res) rs++; else ss++;
 
       string zt = ZoneType(sr[i]);
+      if(StringFind(zt, "Weak") >= 0)     continue;
+      if(StringFind(zt, "Turncoat") >= 0) continue;
       color  bdr, fill;
       ZoneColors(zt, bdr, fill);
 
@@ -719,7 +721,7 @@ void DrawSR(SRLvl &sr[], int sr_n, double current_price)
       ObjectSetDouble(0,  bname, OBJPROP_PRICE, 0, top);
       ObjectSetInteger(0, bname, OBJPROP_TIME,  1, t_right);
       ObjectSetDouble(0,  bname, OBJPROP_PRICE, 1, bot);
-      ObjectSetInteger(0, bname, OBJPROP_COLOR, (color)ColorToARGB(fill, 60));
+      ObjectSetInteger(0, bname, OBJPROP_COLOR, (color)ColorToARGB(fill, 38));
       ObjectSetInteger(0, bname, OBJPROP_FILL,  true);
       ObjectSetInteger(0, bname, OBJPROP_BACK,  true);
       ObjectSetInteger(0, bname, OBJPROP_STYLE, STYLE_SOLID);
@@ -732,20 +734,12 @@ void DrawSR(SRLvl &sr[], int sr_n, double current_price)
       if(ObjectFind(0, ename) < 0)
          ObjectCreate(0, ename, OBJ_HLINE, 0, 0, edge);
       ObjectSetDouble(0,  ename, OBJPROP_PRICE, edge);
-      ObjectSetInteger(0, ename, OBJPROP_COLOR, (color)ColorToARGB(bdr, 200));
+      ObjectSetInteger(0, ename, OBJPROP_COLOR, (color)ColorToARGB(bdr, 160));
       ObjectSetInteger(0, ename, OBJPROP_STYLE, STYLE_SOLID);
       ObjectSetInteger(0, ename, OBJPROP_WIDTH, 1);
       ObjectSetInteger(0, ename, OBJPROP_SELECTABLE, false);
       ObjectSetInteger(0, ename, OBJPROP_HIDDEN, false);
 
-      if((sr[i].is_res && rs == 1) || (!sr[i].is_res && ss == 1))
-      {
-         datetime t_lbl = sr[i].origin_time + (datetime)(PeriodSeconds(_Period) * 2);
-         double   p_lbl = sr[i].is_res ? (top - atr * 0.07) : (bot + atr * 0.07);
-         string zone_tag = sr[i].is_res ? "[PREMIUM]" : "[DISCOUNT]";
-         SetText("SR_"+IntegerToString(i)+"_ZT", zone_tag, t_lbl, p_lbl, bdr, 8,
-                 sr[i].is_res ? ANCHOR_LEFT_UPPER : ANCHOR_LEFT_LOWER, true);
-      }
    }
 }
 
@@ -761,21 +755,21 @@ void DrawStructure(SwingPt &swings[], int n)
       if(swings[i].is_high) { ArrayResize(hs, nh + 1); hs[nh++] = swings[i]; }
       else                  { ArrayResize(ls, nl + 1); ls[nl++]  = swings[i]; }
    }
-   double atr_off = GetATR() * 0.18;
+   double atr_off = GetATR() * 0.25;
 
    for(int i = 0; i < MathMin(nh - 1, 3); i++)
    {
       string lbl = (hs[i].price > hs[i + 1].price) ? "HH" : "LH";
       color  clr = (hs[i].price > hs[i + 1].price) ? C'80,210,80' : C'220,90,60';
-      SetText("STR_H" + IntegerToString(i), "[" + lbl + "]", hs[i].time,
-              hs[i].price + atr_off, clr, 7, ANCHOR_LOWER, true);
+      SetText("STR_H" + IntegerToString(i), lbl, hs[i].time,
+              hs[i].price + atr_off, clr, 8, ANCHOR_LOWER, true);
    }
    for(int i = 0; i < MathMin(nl - 1, 3); i++)
    {
       string lbl = (ls[i].price > ls[i + 1].price) ? "HL" : "LL";
       color  clr = (ls[i].price > ls[i + 1].price) ? C'80,210,80' : C'220,90,60';
-      SetText("STR_L" + IntegerToString(i), "[" + lbl + "]", ls[i].time,
-              ls[i].price - atr_off, clr, 7, ANCHOR_UPPER, true);
+      SetText("STR_L" + IntegerToString(i), lbl, ls[i].time,
+              ls[i].price - atr_off, clr, 8, ANCHOR_UPPER, true);
    }
 }
 
@@ -784,15 +778,19 @@ void DrawLiquidity(LiqPool &pools[], int n)
    ClearObjs(g_pfx + "LIQ_");
    if(!InpShowLiquidity || n == 0) return;
 
+   int bsl_cnt = 0, ssl_cnt = 0;
    for(int i = 0; i < n; i++)
    {
       string id  = "LIQ_" + IntegerToString(i);
       bool   bsl = pools[i].buy_side;
+      if(bsl && bsl_cnt >= 1) continue;
+      if(!bsl && ssl_cnt >= 1) continue;
+      if(bsl) bsl_cnt++; else ssl_cnt++;
       color  clr = bsl ? C'220,180,50' : C'80,180,220';
       string lbl = bsl ? "BSL" : "SSL";
       SetHLine(id, pools[i].price, clr, STYLE_DOT, 1);
       datetime t = TimeCurrent() + (datetime)(PeriodSeconds(_Period) * 5);
-       SetText(id + "_T", "[" + lbl + "]", t, pools[i].price, clr, 7, ANCHOR_LEFT, false);
+      SetText(id + "_T", lbl, t, pools[i].price, clr, 7, ANCHOR_LEFT, false);
    }
 }
 
