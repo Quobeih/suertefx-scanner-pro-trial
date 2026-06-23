@@ -57,23 +57,23 @@ bool SFX_CheckTrial()
    {
       int err = GetLastError();
 
-      if(err == 5203)
+      if(err == 5203 || err == 4014)
       {
          string setup_msg =
             SFX_PRODUCT + " needs internet access to verify your trial.\n\n"
             + "Please follow these steps:\n"
-            + "  1. Go to Tools → Options → Expert Advisors\n"
+            + "  1. Go to Tools -> Options -> Expert Advisors\n"
             + "  2. Tick  'Allow WebRequest for listed URL'\n"
             + "  3. Click [ + ] and add the URL below:\n\n"
             + "  " + SFX_TRIAL_URL + "\n\n"
             + "  4. Click OK and re-attach the indicator.\n\n"
             + "This is a one-time setup.";
-         MessageBox(setup_msg, SFX_PRODUCT + " — Setup Required",
+         MessageBox(setup_msg, SFX_PRODUCT + " - Setup Required",
                     MB_OK | MB_ICONINFORMATION);
          return false;
       }
 
-      Print(SFX_PRODUCT, ": License server unreachable (err=", err, ") — grace mode.");
+      Print(SFX_PRODUCT, ": License server unreachable (err=", err, ") -- grace mode.");
       return true;
    }
 
