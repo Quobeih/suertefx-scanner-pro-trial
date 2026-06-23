@@ -724,24 +724,32 @@ void DrawStructure(SwingPt &swings[], int n)
    }
 }
 
-void DrawLiquidity(LiqPool &pools[], int n)
+void DrawLiquidity(LiqPool &pools[], int n, double current_price)
 {
    ClearObjs(g_pfx + "LIQ_");
    if(!InpShowLiquidity || n == 0) return;
 
-   int bsl_cnt = 0, ssl_cnt = 0;
+   // Pick nearest valid BSL (above price) and nearest valid SSL (below price)
+   double best_bsl = 0.0, best_ssl = DBL_MAX;
    for(int i = 0; i < n; i++)
    {
-      string id  = "LIQ_" + IntegerToString(i);
-      bool   bsl = pools[i].buy_side;
-      if(bsl && bsl_cnt >= 1) continue;
-      if(!bsl && ssl_cnt >= 1) continue;
-      if(bsl) bsl_cnt++; else ssl_cnt++;
-      color  clr = bsl ? C'220,180,50' : C'80,180,220';
-      string lbl = bsl ? "BSL" : "SSL";
-      SetHLine(id, pools[i].price, clr, STYLE_DOT, 1);
+      if(pools[i].buy_side  && pools[i].price > current_price)
+         if(best_bsl == 0.0 || pools[i].price < best_bsl) best_bsl = pools[i].price;
+      if(!pools[i].buy_side && pools[i].price < current_price)
+         if(pools[i].price > best_ssl || best_ssl == DBL_MAX) best_ssl = pools[i].price;
+   }
+
+   if(best_bsl > 0.0)
+   {
       datetime t = TimeCurrent() + (datetime)(PeriodSeconds(_Period) * 5);
-      SetText(id + "_T", lbl, t, pools[i].price, clr, 7, ANCHOR_LEFT, false);
+      SetHLine("LIQ_BSL",    best_bsl, C'220,180,50', STYLE_DOT, 1);
+      SetText("LIQ_BSL_T", "BSL", t, best_bsl, C'220,180,50', 7, ANCHOR_LEFT, false);
+   }
+   if(best_ssl < DBL_MAX)
+   {
+      datetime t = TimeCurrent() + (datetime)(PeriodSeconds(_Period) * 5);
+      SetHLine("LIQ_SSL",    best_ssl, C'80,180,220', STYLE_DOT, 1);
+      SetText("LIQ_SSL_T", "SSL", t, best_ssl, C'80,180,220', 7, ANCHOR_LEFT, false);
    }
 }
 
@@ -1181,7 +1189,8 @@ void DrawPanelV2(const TradingSetup &s, const TFSummary &htf2, const TFSummary &
    string cf1             = (htf_ok ? "[OK] " : "[  ] ") + "HTF Trend";
    string cf2             = (bos_ok ? "[OK] " : "[  ] ") + "BOS / CHOCH";
    string cf3             = (pool_n > 0 ? "[OK] " : "[  ] ") + "Liquidity";
-   string cf4             = (prd_ok ? "[OK] " : "[  ] ") + zone_state;
+   string cf4_zone        = bias_bear ? "PREMIUM" : (bias_bull ? "DISCOUNT" : zone_state);
+   string cf4             = (prd_ok ? "[OK] " : "[  ] ") + cf4_zone;
    string cf5             = (ses_ok ? "[OK] " : "[  ] ") + "Session";
    color  setup_head_clr  = has ? accent : text_c;
    color  status_clr      = has ? accent : gold_c;
@@ -1339,7 +1348,7 @@ void Analyze()
 
    DrawSR(sr, sr_n, close);
    DrawStructure(swings, sw_n);
-   DrawLiquidity(pools, pool_n);
+   DrawLiquidity(pools, pool_n, close);
    DrawEntryZone(setup);
    DrawPanelV2(setup, htf2, htf1, atr, close, pool_n, sr_n);
 
@@ -1436,7 +1445,34 @@ int OnCalculate(const int rates_total,
 
    static datetime last_bar = 0;
    datetime cur = iTime(_Symbol, _Period, 0);
-   if(cur != last_bar) { last_bar = cur; Analyze(); }
+   if(cur != last_bar)
+   {
+      last_bar = cur;
+
+      // Re-read trial status on every new bar so deactivation takes effect immediately
+      if(GlobalVariableCheck(SFX_GV))
+      {
+         double days = GlobalVariableGet(SFX_GV);
+         if(days <= 0 && g_sfx_status == 1)
+         {
+            g_sfx_status = 0;
+            ClearObjs(g_pfx);
+            Alert(SFX_PRODUCT + " - Trial Expired or Deactivated\n\nPurchase the full version on MQL5 Market.");
+         }
+         else if(days > 0 && g_sfx_status == 0)
+         {
+            g_sfx_status = 1; // re-enabled by admin
+         }
+      }
+      else if(g_sfx_status == 1)
+      {
+         g_sfx_status = -1;
+         ClearObjs(g_pfx);
+         SFX_DrawSetupPanel();
+      }
+
+      if(g_sfx_status == 1) Analyze();
+   }
 
    return rates_total;
 }
