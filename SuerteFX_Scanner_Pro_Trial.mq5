@@ -1367,7 +1367,9 @@ void Analyze()
 
 int OnInit()
 {
-   if(!SFX_CheckTrial()) return INIT_FAILED;
+   g_sfx_status = SFX_CheckTrial();
+   if(g_sfx_status == 0)  return INIT_FAILED;   // expired — remove indicator
+   if(g_sfx_status == -1) return INIT_SUCCEEDED; // needs setup — show panel, stay on chart
 
    SetIndexBuffer(0, buf_ema20,  INDICATOR_DATA);
    SetIndexBuffer(1, buf_ema50,  INDICATOR_DATA);
@@ -1408,6 +1410,7 @@ int OnCalculate(const int rates_total,
                 const int &spread[])
 {
    if(rates_total < 10) return 0;
+   if(g_sfx_status == -1) return rates_total; // paused — only showing setup panel
 
    int to_copy = (prev_calculated > 1) ? rates_total - prev_calculated + 2 : rates_total;
    to_copy = MathMax(to_copy, 1);
@@ -1440,6 +1443,7 @@ int OnCalculate(const int rates_total,
 
 void OnDeinit(const int reason)
 {
+   SFX_ClearSetupPanel();
    ClearObjs(g_pfx);
    if(h_ema20  != INVALID_HANDLE) { IndicatorRelease(h_ema20);  h_ema20  = INVALID_HANDLE; }
    if(h_ema50  != INVALID_HANDLE) { IndicatorRelease(h_ema50);  h_ema50  = INVALID_HANDLE; }
