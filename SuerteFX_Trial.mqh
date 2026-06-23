@@ -142,6 +142,15 @@ int SFX_CheckTrial()
       {
          Print(SFX_PRODUCT, ": WebRequest not configured (err=", err, ") — showing setup panel.");
          SFX_DrawSetupPanel();
+         Alert(
+            SFX_PRODUCT + " — WebRequest Setup Required\n\n"
+            + "1.  Tools  ->  Options  ->  Expert Advisors\n"
+            + "2.  Tick   'Allow WebRequest for listed URL'\n"
+            + "3.  Click [ + ] and paste this URL:\n\n"
+            + "     " + SFX_TRIAL_URL + "\n\n"
+            + "4.  Click OK  then re-attach the indicator.\n\n"
+            + "You can copy the URL above from this dialog."
+         );
          return -1;
       }
 
