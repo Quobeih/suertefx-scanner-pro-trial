@@ -1,7 +1,9 @@
-﻿#property copyright "SuerteFX"
+#property copyright "SuerteFX"
 #property version   "1.00"
 #property indicator_chart_window
-#property indicator_description "SuerteFX Scanner Pro — Smart Money Concept Scanner"
+#property indicator_description "SuerteFX Scanner Pro — 7-Day Free Trial"
+
+#include "SuerteFX_Trial.mqh"
 
 #property indicator_buffers 3
 #property indicator_plots   3
@@ -401,7 +403,6 @@ int FindLiquidity(SwingPt &swings[], int n, double atr, LiqPool &out[])
 }
 
 // ─── Unified bias classifier ──────────────────────────────────────────────────
-// Used by both GenerateSetup (current TF) and AnalyzeTF (HTFs) — same formula.
 
 string ClassifyBias(bool ab20, bool ab50, bool ab200)
 {
@@ -442,66 +443,41 @@ TradingSetup GenerateSetup(const string structure, double close, double atr,
 
    s.bias = ClassifyBias(ab20, ab50, ab200);
 
-   // BUY requires price above BOTH EMA200 and EMA50 (confirmed bullish context)
-   // SELL requires price below BOTH EMA200 and EMA50 (confirmed bearish context)
    bool bull = (structure == "Bullish" || structure == "CHoCH_Bull") && ab200 && ab50 && trend_bull;
    bool bear = (structure == "Bearish" || structure == "CHoCH_Bear") && !ab200 && !ab50 && trend_bear;
 
    if(bull)
    {
       if(structure == "CHoCH_Bull" && !bull_sweep)
-      {
-         s.reason = "CHOCH bull - no sell-side sweep";
-         return s;
-      }
-
+      { s.reason = "CHOCH bull - no sell-side sweep"; return s; }
       if(!in_discount)
-      {
-         s.reason = "Bullish context - wait for discount";
-         return s;
-      }
+      { s.reason = "Bullish context - wait for discount"; return s; }
 
       double cands[4]; int nc = 0;
-      if(last_sl.price > 0 && last_sl.price < close - atr * 0.3)
-         cands[nc++] = last_sl.price;
-      if(ema50 > 0 && ema50 < close - atr * 0.3 && nc < 4)
-         cands[nc++] = ema50;
-      if(ema20 > 0 && ema20 < close - atr * 0.3 && nc < 4)
-         cands[nc++] = ema20;
+      if(last_sl.price > 0 && last_sl.price < close - atr * 0.3) cands[nc++] = last_sl.price;
+      if(ema50 > 0 && ema50 < close - atr * 0.3 && nc < 4)       cands[nc++] = ema50;
+      if(ema20 > 0 && ema20 < close - atr * 0.3 && nc < 4)       cands[nc++] = ema20;
       for(int i = 0; i < sr_n && nc < 4; i++)
-         if(!sr[i].is_res && sr[i].price < close - atr * 0.3)
-         { cands[nc++] = sr[i].price; break; }
-
+         if(!sr[i].is_res && sr[i].price < close - atr * 0.3) { cands[nc++] = sr[i].price; break; }
       if(nc == 0) { s.reason = "No demand zone found"; return s; }
 
-      double best = cands[0];
-      string rlbl = "Support";
-      for(int i = 1; i < nc; i++)
-         if(cands[i] > best) { best = cands[i]; }
+      double best = cands[0]; string rlbl = "Support";
+      for(int i = 1; i < nc; i++) if(cands[i] > best) best = cands[i];
       if(MathAbs(best - last_sl.price) < _Point * 10) rlbl = "Last HL";
       else if(MathAbs(best - ema50) < _Point * 10)    rlbl = "EMA 50";
       else if(MathAbs(best - ema20) < _Point * 10)    rlbl = "EMA 20";
 
       double sl_price = best - atr * InpSLBufferATR;
-      double tp = 0;
-      bool has_external_tp = false;
+      double tp = 0; bool has_external_tp = false;
       for(int i = 0; i < sr_n; i++)
          if(sr[i].is_res && sr[i].price > close) { tp = sr[i].price; has_external_tp = true; break; }
       for(int i = 0; i < pool_n; i++)
          if(pools[i].buy_side && pools[i].price > close)
             if(tp == 0 || pools[i].price < tp) { tp = pools[i].price; has_external_tp = true; }
-      if(!has_external_tp || tp <= 0)
-      {
-         s.reason = "No external liquidity target";
-         return s;
-      }
+      if(!has_external_tp || tp <= 0) { s.reason = "No external liquidity target"; return s; }
 
       double risk = best - sl_price, reward = tp - best;
-      if(risk <= 0.0 || reward <= 0.0)
-      {
-         s.reason = "Invalid bullish risk profile";
-         return s;
-      }
+      if(risk <= 0.0 || reward <= 0.0) { s.reason = "Invalid bullish risk profile"; return s; }
       string struct_lbl_b = structure; StringReplace(struct_lbl_b, "_", " ");
       s.type = "BUY_LIMIT"; s.entry = best; s.sl = sl_price; s.tp = tp;
       s.rr = reward / risk; s.reason = struct_lbl_b + " + " + rlbl;
@@ -509,32 +485,19 @@ TradingSetup GenerateSetup(const string structure, double close, double atr,
    else if(bear)
    {
       if(structure == "CHoCH_Bear" && !bear_sweep)
-      {
-         s.reason = "CHOCH bear - no buy-side sweep";
-         return s;
-      }
-
+      { s.reason = "CHOCH bear - no buy-side sweep"; return s; }
       if(!in_premium)
-      {
-         s.reason = "Bearish context - wait for premium";
-         return s;
-      }
+      { s.reason = "Bearish context - wait for premium"; return s; }
 
       double cands[4]; int nc = 0;
-      if(last_sh.price > 0 && last_sh.price > close + atr * 0.3)
-         cands[nc++] = last_sh.price;
-      if(ema50 > 0 && ema50 > close + atr * 0.3 && nc < 4)
-         cands[nc++] = ema50;
-      if(ema20 > 0 && ema20 > close + atr * 0.3 && nc < 4)
-         cands[nc++] = ema20;
+      if(last_sh.price > 0 && last_sh.price > close + atr * 0.3) cands[nc++] = last_sh.price;
+      if(ema50 > 0 && ema50 > close + atr * 0.3 && nc < 4)       cands[nc++] = ema50;
+      if(ema20 > 0 && ema20 > close + atr * 0.3 && nc < 4)       cands[nc++] = ema20;
       for(int i = 0; i < sr_n && nc < 4; i++)
-         if(sr[i].is_res && sr[i].price > close + atr * 0.3)
-         { cands[nc++] = sr[i].price; break; }
-
+         if(sr[i].is_res && sr[i].price > close + atr * 0.3) { cands[nc++] = sr[i].price; break; }
       if(nc == 0) { s.reason = "No supply zone found"; return s; }
 
-      double best = cands[0];
-      string rlbl = "Resistance";
+      double best = cands[0]; string rlbl = "Resistance";
       for(int i = 1; i < nc; i++)
          if(cands[i] > 0 && cands[i] < best && cands[i] > close) best = cands[i];
       if(MathAbs(best - last_sh.price) < _Point * 10) rlbl = "Last SH";
@@ -542,25 +505,16 @@ TradingSetup GenerateSetup(const string structure, double close, double atr,
       else if(MathAbs(best - ema20) < _Point * 10)    rlbl = "EMA 20";
 
       double sl_price = best + atr * InpSLBufferATR;
-      double tp = 0;
-      bool has_external_tp = false;
+      double tp = 0; bool has_external_tp = false;
       for(int i = 0; i < sr_n; i++)
          if(!sr[i].is_res && sr[i].price < close) { tp = sr[i].price; has_external_tp = true; break; }
       for(int i = 0; i < pool_n; i++)
          if(!pools[i].buy_side && pools[i].price < close)
             if(tp == 0 || pools[i].price > tp) { tp = pools[i].price; has_external_tp = true; }
-      if(!has_external_tp || tp <= 0)
-      {
-         s.reason = "No external liquidity target";
-         return s;
-      }
+      if(!has_external_tp || tp <= 0) { s.reason = "No external liquidity target"; return s; }
 
       double risk = sl_price - best, reward = best - tp;
-      if(risk <= 0.0 || reward <= 0.0)
-      {
-         s.reason = "Invalid bearish risk profile";
-         return s;
-      }
+      if(risk <= 0.0 || reward <= 0.0) { s.reason = "Invalid bearish risk profile"; return s; }
       string struct_lbl_s = structure; StringReplace(struct_lbl_s, "_", " ");
       s.type = "SELL_LIMIT"; s.entry = best; s.sl = sl_price; s.tp = tp;
       s.rr = reward / risk; s.reason = struct_lbl_s + " + " + rlbl;
@@ -632,10 +586,8 @@ string UpperText(string value)
 
 bool TextHas(const string value, const string needle)
 {
-   string lhs = value;
-   string rhs = needle;
-   StringToUpper(lhs);
-   StringToUpper(rhs);
+   string lhs = value; string rhs = needle;
+   StringToUpper(lhs); StringToUpper(rhs);
    return StringFind(lhs, rhs) >= 0;
 }
 
@@ -671,11 +623,11 @@ string SentimentHeadline(const int buy_pct, const int sell_pct)
 
 string TradePanelTitle(const string decision)
 {
-   if(decision == "Buy")  return "BUY SETUP";
-   if(decision == "Sell") return "SELL SETUP";
-   if(decision == "Wait") return "WAIT STATE";
+   if(decision == "Buy")     return "BUY SETUP";
+   if(decision == "Sell")    return "SELL SETUP";
+   if(decision == "Wait")    return "WAIT STATE";
    if(decision == "Standby") return "STANDBY";
-   if(decision == "Avoid") return "STAND ASIDE";
+   if(decision == "Avoid")   return "STAND ASIDE";
    return "TRADE SETUP";
 }
 
@@ -741,7 +693,6 @@ void DrawSR(SRLvl &sr[], int sr_n, double current_price)
       ObjectSetInteger(0, ename, OBJPROP_WIDTH, 1);
       ObjectSetInteger(0, ename, OBJPROP_SELECTABLE, false);
       ObjectSetInteger(0, ename, OBJPROP_HIDDEN, false);
-
    }
 }
 
@@ -928,8 +879,8 @@ string TradeDecision(const TradingSetup &s, const int score)
 {
    if(s.type == "BUY_LIMIT")  return (score >= 6) ? "Buy" : "Wait";
    if(s.type == "SELL_LIMIT") return (score >= 6) ? "Sell" : "Wait";
-   if(TextHas(s.reason, "WAIT"))    return "Wait";
-   if(TextHas(s.reason, "SESSION")) return "Standby";
+   if(TextHas(s.reason, "WAIT"))       return "Wait";
+   if(TextHas(s.reason, "SESSION"))    return "Standby";
    if(TextHas(s.reason, "VOLATILITY")) return "Standby";
    if(TextHas(s.reason, "LIQUIDITY"))  return "Standby";
    return (score >= 6) ? "Standby" : "Avoid";
@@ -1041,7 +992,6 @@ int QualityPercent(const TradingSetup &s, const int score)
       if(idle < 5) idle = 5;
       return idle;
    }
-
    int pct = score * 10;
    if(s.rr >= 2.0) pct += 8;
    else if(s.rr >= 1.5) pct += 4;
@@ -1056,9 +1006,9 @@ string SetupStatus(const TradingSetup &s, const int score)
    if(s.type == "NONE")
    {
       if(TextHas(s.reason, "DISCOUNT") || TextHas(s.reason, "PREMIUM")) return "Wait For Pullback";
-      if(TextHas(s.reason, "SESSION")) return "Wait For Session";
+      if(TextHas(s.reason, "SESSION"))    return "Wait For Session";
       if(TextHas(s.reason, "VOLATILITY")) return "Wait For Volatility";
-      if(TextHas(s.reason, "LIQUIDITY")) return "Need Liquidity";
+      if(TextHas(s.reason, "LIQUIDITY"))  return "Need Liquidity";
       return (score >= 6) ? "Standby Filtered" : "Stand Aside";
    }
    if(score >= 8) return "Primary Setup";
@@ -1199,12 +1149,12 @@ void DrawPanelV2(const TradingSetup &s, const TFSummary &htf2, const TFSummary &
    string lot_s        = LotSizeEst(s);
 
    int factor_hits = 0;
-   if(htf_ok)     factor_hits++;
-   if(aligned)    factor_hits++;
-   if(bos_ok)     factor_hits++;
-   if(prd_ok)     factor_hits++;
-   if(ses_ok)     factor_hits++;
-   if(vol_ok)     factor_hits++;
+   if(htf_ok)  factor_hits++;
+   if(aligned) factor_hits++;
+   if(bos_ok)  factor_hits++;
+   if(prd_ok)  factor_hits++;
+   if(ses_ok)  factor_hits++;
+   if(vol_ok)  factor_hits++;
    int confluence_score = ClampInt((int)MathRound((double)factor_hits * 100.0 / 6.0), 0, 100);
    string bias_head = BiasHeadline(cons_bias);
    string signal_head = UpperText(decision);
@@ -1249,14 +1199,14 @@ void DrawPanelV2(const TradingSetup &s, const TFSummary &htf2, const TFSummary &
    DrawRect("BADGE_SIG",  246, 66,  94, 30, bg2, accent);
    DrawRect("BADGE_SES",  348, 66, 308, 30, bg2, sess_clr);
 
-   SetLabel("H0", "SUERTEFX SCANNER PRO", 24, 10, text_c, 11, true);
-   SetLabel("H1", "Institutional Smart Money Scanner", 24, 39, muted, 5, false);
+   SetLabel("H0", "SUERTEFX SCANNER PRO  [TRIAL]", 24, 10, text_c, 11, true);
+   SetLabel("H1", "Institutional Smart Money Scanner — 7-Day Free Trial", 24, 39, muted, 5, false);
    SetLabel("H2", TFLabel(_Period) + "  |  " + _Symbol, 516, 16, muted, 8, true);
-   SetLabel("HB0", "BIAS", 34, 69, muted, 6, true);
-   SetLabel("HB1", bias_head, 34, 80, cons_color, 7, true);
-   SetLabel("HB2", "CONF", 160, 69, muted, 6, true);
+   SetLabel("HB0", "BIAS",    34,  69, muted, 6, true);
+   SetLabel("HB1", bias_head, 34,  80, cons_color, 7, true);
+   SetLabel("HB2", "CONF",   160,  69, muted, 6, true);
    SetLabel("HB3", IntegerToString(confluence_score) + "%", 160, 80, conf_clr, 7, true);
-   SetLabel("HB4", "SIGNAL", 256, 69, muted, 6, true);
+   SetLabel("HB4", "SIGNAL", 256,  69, muted, 6, true);
    SetLabel("HB5", signal_head, 256, 80, accent, 7, true);
    SetLabel("HB6", "SESSION", 358, 69, muted, 6, true);
    SetLabel("HB7", session_box, 358, 80, sess_clr, 7, true);
@@ -1279,15 +1229,15 @@ void DrawPanelV2(const TradingSetup &s, const TFSummary &htf2, const TFSummary &
    SetLabel("S1", setup_subline, 248, 178, muted, 6, false);
    if(has)
    {
-      SetLabel("S2", "Entry", 248, 194, muted, 7, true);
-      SetLabel("S3", entry_s, 248, 216, text_c, 11, true);
-      SetLabel("S4", "Stop Loss", 346, 194, muted, 7, true);
-      SetLabel("S5", sl_s, 346, 216, bear_c, 11, true);
-      SetLabel("S6", "Take Profit", 248, 244, muted, 7, true);
-      SetLabel("S7", tp_box, 248, 266, bull_c, 11, true);
-      SetLabel("S8", "RR", 346, 244, muted, 7, true);
-      SetLabel("S9", rr_s, 346, 266, blue_c, 11, true);
-      SetLabel("S10", reason_line, 248, 282, muted, 6, false);
+      SetLabel("S2",  "Entry",     248, 194, muted,   7, true);
+      SetLabel("S3",  entry_s,     248, 216, text_c, 11, true);
+      SetLabel("S4",  "Stop Loss", 346, 194, muted,   7, true);
+      SetLabel("S5",  sl_s,        346, 216, bear_c, 11, true);
+      SetLabel("S6",  "Take Profit",248, 244, muted,  7, true);
+      SetLabel("S7",  tp_box,      248, 266, bull_c, 11, true);
+      SetLabel("S8",  "RR",        346, 244, muted,   7, true);
+      SetLabel("S9",  rr_s,        346, 266, blue_c, 11, true);
+      SetLabel("S10", reason_line, 248, 282, muted,   6, false);
       SetLabel("S11", " ", 248, 198, muted, 7, false);
       SetLabel("S12", " ", 248, 220, muted, 7, false);
       SetLabel("S13", " ", 248, 248, muted, 7, false);
@@ -1295,48 +1245,48 @@ void DrawPanelV2(const TradingSetup &s, const TFSummary &htf2, const TFSummary &
    }
    else
    {
-      SetLabel("S2", " ", 248, 194, muted, 7, false);
-      SetLabel("S3", " ", 248, 216, muted, 7, false);
-      SetLabel("S4", " ", 346, 194, muted, 7, false);
-      SetLabel("S5", " ", 346, 216, muted, 7, false);
-      SetLabel("S6", " ", 248, 244, muted, 7, false);
-      SetLabel("S7", " ", 248, 266, muted, 7, false);
-      SetLabel("S8", " ", 346, 244, muted, 7, false);
-      SetLabel("S9", " ", 346, 266, muted, 7, false);
+      SetLabel("S2",  " ", 248, 194, muted, 7, false);
+      SetLabel("S3",  " ", 248, 216, muted, 7, false);
+      SetLabel("S4",  " ", 346, 194, muted, 7, false);
+      SetLabel("S5",  " ", 346, 216, muted, 7, false);
+      SetLabel("S6",  " ", 248, 244, muted, 7, false);
+      SetLabel("S7",  " ", 248, 266, muted, 7, false);
+      SetLabel("S8",  " ", 346, 244, muted, 7, false);
+      SetLabel("S9",  " ", 346, 266, muted, 7, false);
       SetLabel("S10", " ", 248, 282, muted, 6, false);
-      SetLabel("S11", "Status", 248, 198, muted, 7, true);
-      SetLabel("S12", signal_status, 248, 220, status_clr, 11, true);
-      SetLabel("S13", "Blocked By", 248, 248, muted, 7, true);
-      SetLabel("S14", reason_line, 248, 270, text_c, 8, false);
+      SetLabel("S11", "Status",    248, 198, muted,       7, true);
+      SetLabel("S12", signal_status,248, 220, status_clr, 11, true);
+      SetLabel("S13", "Blocked By", 248, 248, muted,      7, true);
+      SetLabel("S14", reason_line,  248, 270, text_c,     8, false);
    }
 
    SetLabel("G0", "SYSTEM STRENGTH", 500, 146, muted, 7, true);
    SetLabel("G1", IntegerToString(confluence_score) + "%", 500, 162, conf_clr, 16, true);
    SetLabel("G2", "Confluence", 500, 204, muted, 7, true);
-   DrawProgressBar("G_CONF", 500, 220, 132, 12, confluence_score, conf_clr, bg2, brd);
+   DrawProgressBar("G_CONF",  500, 220, 132, 12, confluence_score, conf_clr,   bg2, brd);
    SetLabel("G3", "Setup Quality", 500, 246, muted, 7, true);
-   DrawProgressBar("G_CONF2", 500, 262, 132, 12, quality, score_color, bg2, brd);
+   DrawProgressBar("G_CONF2", 500, 262, 132, 12, quality,          score_color, bg2, brd);
    SetLabel("G4", "Trend", 500, 288, muted, 7, true);
-   DrawProgressBar("G_TREND", 500, 304, 132, 12, trend_strength, cons_color, bg2, brd);
+   DrawProgressBar("G_TREND", 500, 304, 132, 12, trend_strength,   cons_color,  bg2, brd);
 
    SetLabel("C0", "CONFLUENCE CHECKLIST", 24, 320, muted, 7, true);
    SetLabel("C1", IntegerToString(confluence_score) + " / 100", 24, 348, text_c, 18, true);
    SetLabel("C2", confluence_lbl, 170, 352, score_color, 8, true);
-   SetLabel("C3", cf1, 24, 386, htf_ok ? bull_c : grey_c, 8, false);
-   SetLabel("C4", cf2, 24, 410, bos_ok ? bull_c : grey_c, 8, false);
-   SetLabel("C5", cf3, 24, 434, pool_n > 0 ? bull_c : grey_c, 8, false);
-   SetLabel("C6", cf4, 182, 386, prd_ok ? bull_c : grey_c, 8, false);
-   SetLabel("C7", cf5, 182, 410, ses_ok ? bull_c : grey_c, 8, false);
+   SetLabel("C3", cf1, 24,  386, htf_ok   ? bull_c : grey_c, 8, false);
+   SetLabel("C4", cf2, 24,  410, bos_ok   ? bull_c : grey_c, 8, false);
+   SetLabel("C5", cf3, 24,  434, pool_n>0 ? bull_c : grey_c, 8, false);
+   SetLabel("C6", cf4, 182, 386, prd_ok   ? bull_c : grey_c, 8, false);
+   SetLabel("C7", cf5, 182, 410, ses_ok   ? bull_c : grey_c, 8, false);
 
    SetLabel("X0", "MARKET CONTEXT", 354, 320, muted, 7, true);
-   SetLabel("X1", trend_label, 354, 348, cons_color, 10, true);
-   SetLabel("X2", "MTF", 354, 384, muted, 7, true);
-   SetLabel("X3", tf_box, 398, 384, blue_c, 8, true);
-   SetLabel("X4", "Risk", 354, 410, muted, 7, true);
-   SetLabel("X5", risk_status, 398, 410, risk_clr, 10, true);
-   SetLabel("X6", "Lot", 354, 436, muted, 7, true);
-   SetLabel("X7", lot_s, 398, 436, text_c, 9, true);
-   SetLabel("X8", "Session", 520, 384, muted, 7, true);
+   SetLabel("X1", trend_label,   354, 348, cons_color, 10, true);
+   SetLabel("X2", "MTF",         354, 384, muted,       7, true);
+   SetLabel("X3", tf_box,        398, 384, blue_c,      8, true);
+   SetLabel("X4", "Risk",        354, 410, muted,       7, true);
+   SetLabel("X5", risk_status,   398, 410, risk_clr,   10, true);
+   SetLabel("X6", "Lot",         354, 436, muted,       7, true);
+   SetLabel("X7", lot_s,         398, 436, text_c,      9, true);
+   SetLabel("X8", "Session",     520, 384, muted,       7, true);
    SetLabel("X9", ses_ok ? "ACTIVE" : "QUIET", 520, 410, ses_ok ? bull_c : gold_c, 10, true);
 }
 
@@ -1378,28 +1328,16 @@ void Analyze()
                                       sr, sr_n, last_sh, last_sl, prev_sh, prev_sl,
                                       pools, pool_n, e20, e50, e200);
 
-   string session = SessionStatus();
+   string session    = SessionStatus();
    string volatility = VolatilityLabel(atr, close);
    bool ses_ok = StringFind(session, "London") >= 0 || StringFind(session, "New York") >= 0 ||
                  StringFind(session, "overlap") >= 0;
    bool vol_ok = StringFind(volatility, "Normal") >= 0;
    bool liq_ok = (pool_n > 0);
 
-   if(setup.type != "NONE" && !liq_ok)
-   {
-      setup.type = "NONE";
-      setup.reason = "No liquidity confluence";
-   }
-   if(setup.type != "NONE" && !vol_ok)
-   {
-      setup.type = "NONE";
-      setup.reason = "Wait for normal volatility";
-   }
-   if(setup.type != "NONE" && !ses_ok)
-   {
-      setup.type = "NONE";
-      setup.reason = "Wait for London/New York";
-   }
+   if(setup.type != "NONE" && !liq_ok)  { setup.type = "NONE"; setup.reason = "No liquidity confluence"; }
+   if(setup.type != "NONE" && !vol_ok)  { setup.type = "NONE"; setup.reason = "Wait for normal volatility"; }
+   if(setup.type != "NONE" && !ses_ok)  { setup.type = "NONE"; setup.reason = "Wait for London/New York"; }
 
    DrawSR(sr, sr_n, close);
    DrawStructure(swings, sw_n);
@@ -1431,6 +1369,8 @@ void Analyze()
 
 int OnInit()
 {
+   if(!SFX_CheckTrial()) return INIT_FAILED;
+
    SetIndexBuffer(0, buf_ema20,  INDICATOR_DATA);
    SetIndexBuffer(1, buf_ema50,  INDICATOR_DATA);
    SetIndexBuffer(2, buf_ema200, INDICATOR_DATA);
@@ -1454,7 +1394,7 @@ int OnInit()
       h_ema200 == INVALID_HANDLE || h_atr    == INVALID_HANDLE)
    { Print("SuerteFX Scanner: handle creation failed"); return INIT_FAILED; }
 
-   IndicatorSetString(INDICATOR_SHORTNAME, "SuerteFX Scanner Pro");
+   IndicatorSetString(INDICATOR_SHORTNAME, "SuerteFX Scanner Pro [TRIAL]");
    return INIT_SUCCEEDED;
 }
 
