@@ -2,27 +2,23 @@
 //|  SuerteFX_Trial.mqh                                              |
 //|  Trial validation for SuerteFX Scanner Pro                       |
 //|                                                                  |
-//|  Calls the SuerteFX license server on every OnInit().            |
-//|  The server stores the first activation timestamp and            |
-//|  enforces a 7-day limit tied to the MT5 account login number.   |
-//|                                                                  |
-//|  Include this file in the main indicator:                        |
+//|  Include in the main indicator:                                  |
 //|    #include "SuerteFX_Trial.mqh"                                 |
-//|  Then call at the top of OnInit():                               |
+//|  Call at the top of OnInit():                                    |
 //|    if(!SFX_CheckTrial()) return INIT_FAILED;                     |
 //+------------------------------------------------------------------+
-#pragma once
+#ifndef SUERTEFX_TRIAL_MQH
+#define SUERTEFX_TRIAL_MQH
 
 // ── Server config ─────────────────────────────────────────────────
-#define SFX_TRIAL_URL    "https://license-server-eight-zeta.vercel.app/api/mt5/check"
-#define SFX_TRIAL_KEY    "Hhh35fQH7Lk6c07QXIQkR5a3cqHiucH91l4cRKRuc"
-#define SFX_PRODUCT      "SuerteFX Scanner Pro"
-#define SFX_TIMEOUT_MS   8000
+#define SFX_TRIAL_URL  "https://license-server-eight-zeta.vercel.app/api/mt5/check"
+#define SFX_TRIAL_KEY  "Hhh35fQH7Lk6c07QXIQkR5a3cqHiucH91l4cRKRuc"
+#define SFX_PRODUCT    "SuerteFX Scanner Pro"
+#define SFX_TIMEOUT_MS 8000
 
 // ── Internal helpers ──────────────────────────────────────────────
 
-// Extract an integer value from a JSON string: "field":123
-static int _sfx_json_int(const string json, const string field)
+int _sfx_json_int(const string json, const string field)
 {
    string needle = "\"" + field + "\":";
    int pos = StringFind(json, needle);
@@ -30,8 +26,7 @@ static int _sfx_json_int(const string json, const string field)
    return (int)StringToInteger(StringSubstr(json, pos + StringLen(needle), 6));
 }
 
-// Extract a string value from a JSON string: "field":"value"
-static string _sfx_json_str(const string json, const string field)
+string _sfx_json_str(const string json, const string field)
 {
    string needle = "\"" + field + "\":\"";
    int pos = StringFind(json, needle);
@@ -43,8 +38,6 @@ static string _sfx_json_str(const string json, const string field)
 
 // ── Public API ────────────────────────────────────────────────────
 
-//  Returns true  → indicator may load
-//  Returns false → indicator must return INIT_FAILED
 bool SFX_CheckTrial()
 {
    long   acct = AccountInfoInteger(ACCOUNT_LOGIN);
@@ -59,12 +52,12 @@ bool SFX_CheckTrial()
    int code = WebRequest("GET", url, req_headers, SFX_TIMEOUT_MS,
                          req_body, res_body, res_headers);
 
-   // ── Network error ────────────────────────────────────────────
+   // ── Network error ─────────────────────────────────────────────
    if(code == -1)
    {
       int err = GetLastError();
 
-      if(err == 5203) // URL not in MT5 allowed list
+      if(err == 5203)
       {
          string setup_msg =
             SFX_PRODUCT + " needs internet access to verify your trial.\n\n"
@@ -80,37 +73,36 @@ bool SFX_CheckTrial()
          return false;
       }
 
-      // Any other network error: grace period — don't block legitimate users
       Print(SFX_PRODUCT, ": License server unreachable (err=", err, ") — grace mode.");
       return true;
    }
 
-   // ── HTTP error ───────────────────────────────────────────────
+   // ── HTTP error ────────────────────────────────────────────────
    if(code != 200)
    {
       Print(SFX_PRODUCT, ": License server returned HTTP ", code, " — grace mode.");
       return true;
    }
 
-   // ── Parse JSON response ──────────────────────────────────────
+   // ── Parse JSON response ───────────────────────────────────────
    string json  = CharArrayToString(res_body, 0, WHOLE_ARRAY, CP_UTF8);
-   bool   valid = StringFind(json, "\"valid\":true") >= 0;
+   bool   valid = (StringFind(json, "\"valid\":true") >= 0);
    int    days  = _sfx_json_int(json, "days_left");
    string msg   = _sfx_json_str(json, "message");
 
-   // ── Trial expired ────────────────────────────────────────────
+   // ── Trial expired ─────────────────────────────────────────────
    if(!valid)
    {
       string expired_msg =
          SFX_PRODUCT + " — Trial Expired\n\n"
          + (StringLen(msg) > 0 ? msg : "Your 7-day trial has ended.") + "\n\n"
-         + "Purchase the full version on MQL5 Market to continue using the indicator.";
+         + "Purchase the full version on MQL5 Market to continue.";
       Alert(expired_msg);
       Print(SFX_PRODUCT, ": Trial expired. Purchase on MQL5 Market.");
       return false;
    }
 
-   // ── Trial active ─────────────────────────────────────────────
+   // ── Trial active ──────────────────────────────────────────────
    if(days <= 2)
       Print(SFX_PRODUCT, ": Trial expires in ", days, " day(s) — purchase soon on MQL5 Market.");
    else
@@ -118,3 +110,5 @@ bool SFX_CheckTrial()
 
    return true;
 }
+
+#endif // SUERTEFX_TRIAL_MQH
