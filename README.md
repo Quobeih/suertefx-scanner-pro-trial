@@ -61,7 +61,7 @@ Drag `SuerteFX_Scanner_Pro_Trial` onto your trading chart. The dashboard loads i
 
 ## Full Version
 
-The full version is available on [MQL5 Market](https://www.mql5.com/en/market) — one-time payment, lifetime access, no License Manager EA required.
+The full version is available on [MQL5 Market](https://www.mql5.com/en/market/product/182749) — one-time payment, lifetime access, no License Manager EA required.
 
 ---
 
