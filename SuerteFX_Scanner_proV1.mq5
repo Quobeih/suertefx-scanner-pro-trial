@@ -1,6 +1,9 @@
 ﻿#property copyright "SuerteFX"
 #property version   "1.00"
 #property indicator_chart_window
+#property indicator_description "SuerteFX Scanner Pro — Smart Money Concept Scanner"
+
+#include "SuerteFX_Trial.mqh"
 #property indicator_buffers 3
 #property indicator_plots   3
 
@@ -1429,6 +1432,8 @@ void Analyze()
 
 int OnInit()
 {
+   if(!SFX_CheckTrial()) return INIT_FAILED;
+
    SetIndexBuffer(0, buf_ema20,  INDICATOR_DATA);
    SetIndexBuffer(1, buf_ema50,  INDICATOR_DATA);
    SetIndexBuffer(2, buf_ema200, INDICATOR_DATA);
