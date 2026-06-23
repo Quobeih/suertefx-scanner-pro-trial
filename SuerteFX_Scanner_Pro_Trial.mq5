@@ -1,10 +1,6 @@
-#property copyright "SuerteFX"
-#property version   "1.00"
+#property copyright         "SuerteFX"
+#property version           "1.00"
 #property indicator_chart_window
-#property indicator_description "SuerteFX Scanner Pro — 7-Day Free Trial"
-
-#include "SuerteFX_Trial.mqh"
-
 #property indicator_buffers 3
 #property indicator_plots   3
 
@@ -25,6 +21,8 @@
 #property indicator_color3  clrMagenta
 #property indicator_width3  2
 #property indicator_style3  STYLE_SOLID
+
+#include "SuerteFX_Trial.mqh"
 
 input int    InpPivotSpan     = 3;
 input int    InpLookback      = 120;
