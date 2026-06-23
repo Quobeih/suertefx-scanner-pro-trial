@@ -109,7 +109,8 @@ int SFX_CheckTrial()
    {
       Alert(SFX_PRODUCT + " - Trial Expired\n\n"
             + "Your 7-day trial has ended.\n\n"
-            + "Purchase the full version on MQL5 Market to continue.");
+            + "Get the full version on MQL5 Market:\n"
+            + "https://www.mql5.com/en/market/product/182749");
       Print(SFX_PRODUCT, ": Trial expired.");
       return 0;
    }

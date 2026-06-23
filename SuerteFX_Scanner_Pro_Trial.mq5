@@ -1457,7 +1457,9 @@ int OnCalculate(const int rates_total,
          {
             g_sfx_status = 0;
             ClearObjs(g_pfx);
-            Alert(SFX_PRODUCT + " - Trial Expired or Deactivated\n\nPurchase the full version on MQL5 Market.");
+            Alert(SFX_PRODUCT + " - Trial Expired or Deactivated\n\n"
+                  + "Get the full version on MQL5 Market:\n"
+                  + "https://www.mql5.com/en/market/product/182749");
          }
          else if(days > 0 && g_sfx_status == 0)
          {
